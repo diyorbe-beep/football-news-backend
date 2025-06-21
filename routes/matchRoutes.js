@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const matchController = require('../controllers/matchController');
 const auth = require('../middlewares/auth');
+const { validateMatch } = require('../middlewares/validation');
 
 // @route   GET api/matches
 // @desc    Get all matches
@@ -16,12 +17,12 @@ router.get('/:id', matchController.getMatchById);
 // @route   POST api/matches
 // @desc    Create match
 // @access  Private/Admin
-router.post('/', [auth, auth.admin], matchController.createMatch);
+router.post('/', [auth, auth.admin], validateMatch, matchController.createMatch);
 
 // @route   PUT api/matches/:id
 // @desc    Update match
 // @access  Private/Admin
-router.put('/:id', [auth, auth.admin], matchController.updateMatch);
+router.put('/:id', [auth, auth.admin], validateMatch, matchController.updateMatch);
 
 // @route   DELETE api/matches/:id
 // @desc    Delete match

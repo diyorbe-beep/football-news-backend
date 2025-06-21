@@ -5,11 +5,48 @@ const path = require('path');
 // Get all news
 exports.getAllNews = async (req, res) => {
   try {
-    const news = await News.find().populate('author', 'username').sort('-createdAt');
-    res.json(news);
+    const { page = 1, limit = 10, category, search } = req.query;
+    
+    let query = {};
+    
+    // Filter by category
+    if (category) {
+      query.category = category;
+    }
+    
+    // Search functionality
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { content: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    const news = await News.find(query)
+      .populate('author', 'username')
+      .sort('-createdAt')
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .exec();
+    
+    const count = await News.countDocuments(query);
+    
+    res.json({
+      success: true,
+      data: news,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        totalItems: count,
+        itemsPerPage: limit
+      }
+    });
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({
+      success: false,
+      error: 'Server error'
+    });
   }
 };
 
@@ -18,15 +55,27 @@ exports.getNewsById = async (req, res) => {
   try {
     const news = await News.findById(req.params.id).populate('author', 'username');
     if (!news) {
-      return res.status(404).json({ msg: 'News not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'News not found' 
+      });
     }
-    res.json(news);
+    res.json({
+      success: true,
+      data: news
+    });
   } catch (err) {
     console.error(err.message);
     if (err.kind === 'ObjectId') {
-      return res.status(404).json({ msg: 'News not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'News not found' 
+      });
     }
-    res.status(500).send('Server error');
+    res.status(500).json({
+      success: false,
+      error: 'Server error'
+    });
   }
 };
 
@@ -49,10 +98,19 @@ exports.createNews = async (req, res) => {
     });
 
     const news = await newNews.save();
-    res.json(news);
+    await news.populate('author', 'username');
+    
+    res.status(201).json({
+      success: true,
+      data: news,
+      message: 'News created successfully'
+    });
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({
+      success: false,
+      error: 'Server error'
+    });
   }
 };
 
@@ -72,7 +130,7 @@ exports.updateNews = async (req, res) => {
       updateFields.image = req.file.path;
       // Delete old image if exists
       const oldNews = await News.findById(req.params.id);
-      if (oldNews.image && fs.existsSync(oldNews.image)) {
+      if (oldNews && oldNews.image && fs.existsSync(oldNews.image)) {
         fs.unlinkSync(oldNews.image);
       }
     }
@@ -80,17 +138,27 @@ exports.updateNews = async (req, res) => {
     const news = await News.findByIdAndUpdate(
       req.params.id,
       { $set: updateFields },
-      { new: true }
-    );
+      { new: true, runValidators: true }
+    ).populate('author', 'username');
 
     if (!news) {
-      return res.status(404).json({ msg: 'News not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'News not found' 
+      });
     }
 
-    res.json(news);
+    res.json({
+      success: true,
+      data: news,
+      message: 'News updated successfully'
+    });
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({
+      success: false,
+      error: 'Server error'
+    });
   }
 };
 
@@ -100,7 +168,10 @@ exports.deleteNews = async (req, res) => {
     const news = await News.findById(req.params.id);
     
     if (!news) {
-      return res.status(404).json({ msg: 'News not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'News not found' 
+      });
     }
 
     // Delete image if exists
@@ -108,13 +179,23 @@ exports.deleteNews = async (req, res) => {
       fs.unlinkSync(news.image);
     }
 
-    await news.remove();
-    res.json({ msg: 'News removed' });
+    await News.findByIdAndDelete(req.params.id);
+    
+    res.json({ 
+      success: true,
+      message: 'News deleted successfully' 
+    });
   } catch (err) {
     console.error(err.message);
     if (err.kind === 'ObjectId') {
-      return res.status(404).json({ msg: 'News not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'News not found' 
+      });
     }
-    res.status(500).send('Server error');
+    res.status(500).json({
+      success: false,
+      error: 'Server error'
+    });
   }
 };

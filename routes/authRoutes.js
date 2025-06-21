@@ -1,33 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const { check } = require('express-validator');
 const auth = require('../middlewares/auth'); // Add this import
+const { validateRegistration, validateLogin } = require('../middlewares/validation');
+const { authLimiter } = require('../middlewares/rateLimit');
 
 // @route   POST api/auth/register
 // @desc    Register user
 // @access  Public
-router.post(
-  '/register',
-  [
-    check('username', 'Username is required').not().isEmpty(),
-    check('email', 'Please include a valid email').isEmail(),
-    check('password', 'Please enter a password with 6 or more characters').isLength({ min: 6 })
-  ],
-  authController.register
-);
+router.post('/register', authLimiter, validateRegistration, authController.register);
 
 // @route   POST api/auth/login
 // @desc    Login user
 // @access  Public
-router.post(
-  '/login',
-  [
-    check('email', 'Please include a valid email').isEmail(),
-    check('password', 'Password is required').exists()
-  ],
-  authController.login
-);
+router.post('/login', authLimiter, validateLogin, authController.login);
 
 // @route   GET api/auth/me
 // @desc    Get current user

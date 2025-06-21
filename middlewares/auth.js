@@ -6,7 +6,10 @@ module.exports = function(req, res, next) {
 
   // Check if not token
   if (!token) {
-    return res.status(401).json({ msg: 'No token, authorization denied' });
+    return res.status(401).json({ 
+      success: false,
+      error: 'No token, authorization denied' 
+    });
   }
 
   // Verify token
@@ -15,14 +18,26 @@ module.exports = function(req, res, next) {
     req.user = decoded.user;
     next();
   } catch (err) {
-    res.status(401).json({ msg: 'Token is not valid' });
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Token expired' 
+      });
+    }
+    res.status(401).json({ 
+      success: false,
+      error: 'Token is not valid' 
+    });
   }
 };
 
 // Admin middleware
 module.exports.admin = function(req, res, next) {
   if (req.user.role !== 'admin') {
-    return res.status(403).json({ msg: 'Admin access required' });
+    return res.status(403).json({ 
+      success: false,
+      error: 'Admin access required' 
+    });
   }
   next();
 };
